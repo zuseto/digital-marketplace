@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+}
+
+enum CouponType {
+  PERCENT
+  FIXED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(ADMIN)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  products  Product[]
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("categories")
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  description String        @db.Text
+  features    String[]      @default([])
+  price       Int
+  thumbnail   String?
+  gallery     String[]      @default([])
+  fileUrl     String?       @map("file_url")
+  fileName    String?       @map("file_name")
+  fileSize    Int?          @map("file_size")
+  status      ProductStatus @default(DRAFT)
+  featured    Boolean       @default(false)
+  views       Int           @default(0)
+  categoryId  String?       @map("category_id")
+  category    Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  orders      Order[]
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  invoice       String        @unique
+  customerName  String        @map("customer_name")
+  email         String
+  phone         String
+  productId     String        @map("product_id")
+  product       Product       @relation(fields: [productId], references: [id])
+  amount        Int
+  discount      Int           @default(0)
+  couponCode    String?       @map("coupon_code")
+  paymentStatus PaymentStatus @default(PENDING) @map("payment_status")
+  paymentId     String?       @map("payment_id")
+  snapToken     String?       @map("snap_token")
+  download      Download?
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@index([paymentStatus])
+  @@index([email])
+  @@map("orders")
+}
+
+model Download {
+  id        String   @id @default(cuid())
+  orderId   String   @unique @map("order_id")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  count     Int      @default(0)
+  expiredAt DateTime @map("expired_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("downloads")
+}
+
+model Coupon {
+  id        String     @id @default(cuid())
+  code      String     @unique
+  type      CouponType @default(PERCENT)
+  value     Int
+  active    Boolean    @default(true)
+  maxUses   Int?       @map("max_uses")
+  usedCount Int        @default(0) @map("used_count")
+  expiredAt DateTime?  @map("expired_at")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@map("coupons")
+}
